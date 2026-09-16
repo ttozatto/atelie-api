@@ -6,7 +6,7 @@ Repositorio da interface: `atelie-web` (clonado ao lado desta pasta; o `docker-c
 
 ## Status
 
-Etapa 2 concluida: CRUD de fotos com upload, media servida em `/media` e seed de exemplo.
+Etapa 3 concluida: CRUD de fotos, proxy do ViaCEP e cadastro de clientes.
 
 ## Rotas
 
@@ -17,9 +17,29 @@ Etapa 2 concluida: CRUD de fotos com upload, media servida em `/media` e seed de
 | `POST` | `/api/photos` | `multipart/form-data`: imagem + metadados — exige `X-Admin-Token` |
 | `PUT` | `/api/photos/{id}` | metadados; imagem nova e opcional — exige `X-Admin-Token` |
 | `DELETE` | `/api/photos/{id}` | apaga o registro e o arquivo — exige `X-Admin-Token` |
+| `GET` | `/api/customers` | lista paginada |
+| `POST` | `/api/customers` | cadastro; e-mail duplicado responde 409 |
+| `GET` | `/api/cep/{cep}` | proxy tratado do ViaCEP |
 | `GET` | `/health` | checa a conexao com o banco |
 
 Erros saem no formato `{"detail": "..."}`.
+
+### Proxy de CEP
+
+O ViaCEP e consumido **pela API**, nunca pelo navegador: a interface so conhece
+`GET /api/cep/{cep}`. A resposta do servico externo e traduzida para o nosso schema
+(`logradouro`→`street`, `bairro`→`district`, `localidade`→`city`, `uf`→`state`) e as
+falhas viram erros nossos:
+
+| Situacao | Nossa resposta |
+| --- | --- |
+| CEP encontrado | `200` com `{cep, street, district, city, state}` |
+| ViaCEP responde `{"erro": true}` | `404` `CEP nao encontrado` |
+| ViaCEP nao responde a tempo | `504` `Servico de CEP nao respondeu a tempo` |
+| ViaCEP fora do ar ou resposta invalida | `502` `Servico de CEP indisponivel` |
+| CEP fora do formato de 8 digitos | `422` (nem chega a consultar o ViaCEP) |
+
+A implementacao esta em [`app/services/viacep.py`](app/services/viacep.py).
 
 ### Upload
 
@@ -66,6 +86,8 @@ docker compose up --build
 | `CORS_ORIGINS` | Origens liberadas no CORS, separadas por virgula | `http://localhost:3000` |
 | `ADMIN_TOKEN` | Token comparado ao header `X-Admin-Token` nas rotas de escrita | `troque-este-token` |
 | `MEDIA_DIR` | Diretorio das imagens enviadas | `/app/media` |
+| `VIACEP_BASE_URL` | Base do servico de CEP | `https://viacep.com.br/ws` |
+| `VIACEP_TIMEOUT_SECONDS` | Tempo limite da consulta ao ViaCEP | `5` |
 
 Copie `.env.example` para `.env` se quiser rodar a API isolada. O `.env` nao e versionado.
 

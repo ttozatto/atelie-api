@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     # Placeholder de MVP academico: nao e autenticacao. Ver README.
     admin_token: str = "dev-token"
     media_dir: str = "/app/media"
+    viacep_base_url: str = "https://viacep.com.br/ws"
+    viacep_timeout_seconds: float = 5.0
 
     @property
     def cors_origin_list(self) -> list[str]:
