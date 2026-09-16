@@ -4,12 +4,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.routers import health
+from app.models import Photo  # noqa: F401  (importado para o create_all conhecer a tabela)
+from app.routers import health, photos
+from app.services.media import MEDIA_URL_PREFIX, media_dir
 
 TAGS_METADATA = [
+    {"name": "photos", "description": "Catalogo de obras: consulta publica e escrita pelo painel."},
     {"name": "health", "description": "Verificacao de saude da API e do banco."},
 ]
 
@@ -37,4 +41,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Imagens enviadas pelo painel, servidas direto do volume de media.
+app.mount(MEDIA_URL_PREFIX, StaticFiles(directory=media_dir()), name="media")
+
+app.include_router(photos.router)
 app.include_router(health.router)

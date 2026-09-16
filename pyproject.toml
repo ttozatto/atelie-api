@@ -4,10 +4,13 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "D"]
-ignore = ["D203", "D213"]
+# D401 checa modo imperativo em ingles; os docstrings deste projeto sao em portugues.
+ignore = ["D203", "D213", "D401"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Deixa o pacote `app` importavel a partir da raiz do repositorio.
+pythonpath = ["."]

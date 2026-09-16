@@ -6,7 +6,42 @@ Repositorio da interface: `atelie-web` (clonado ao lado desta pasta; o `docker-c
 
 ## Status
 
-Etapa 1 (infra) concluida: `GET /health` responde e checa a conexao com o banco.
+Etapa 2 concluida: CRUD de fotos com upload, media servida em `/media` e seed de exemplo.
+
+## Rotas
+
+| Metodo | Rota | Observacao |
+| --- | --- | --- |
+| `GET` | `/api/photos` | filtros `q`, `category`, `is_published`; paginacao `limit`/`offset` |
+| `GET` | `/api/photos/{id}` | detalhe da obra |
+| `POST` | `/api/photos` | `multipart/form-data`: imagem + metadados — exige `X-Admin-Token` |
+| `PUT` | `/api/photos/{id}` | metadados; imagem nova e opcional — exige `X-Admin-Token` |
+| `DELETE` | `/api/photos/{id}` | apaga o registro e o arquivo — exige `X-Admin-Token` |
+| `GET` | `/health` | checa a conexao com o banco |
+
+Erros saem no formato `{"detail": "..."}`.
+
+### Upload
+
+Aceita `jpg`, `jpeg`, `png` e `webp` ate 10 MB (415 para formato nao suportado, 413
+acima do limite). O arquivo vai para o volume montado em `/app/media` e e servido por
+`StaticFiles` em `/media`; o campo `image_path` guarda o caminho publico
+(ex.: `/media/a1b2c3.jpg`). Nao ha geracao de thumbnail — o redimensionamento fica com
+o `next/image` na interface.
+
+O campo `sizes` chega como texto separado por virgula (`A4, A3, 30x40`) e e gravado
+como `text[]`.
+
+## Seed
+
+Gera 8 obras de exemplo com imagens criadas na hora pelo Pillow (retangulo colorido com
+o titulo escrito), para a demonstracao nao depender de foto real:
+
+```bash
+docker compose exec api python -m scripts.seed
+```
+
+O script nao faz nada se o catalogo ja tiver obras.
 
 ## Como executar
 
@@ -47,3 +82,7 @@ usuarios, sessoes, hash de senha nem expiracao. Nao usar em producao.
 docker compose exec api ruff check .
 docker compose exec api pytest
 ```
+
+Os testes usam um banco proprio (`atelie_test`, criado automaticamente) e um diretorio
+de media temporario, entao nao mexem nos dados de desenvolvimento. Nenhum teste acessa
+a rede.
