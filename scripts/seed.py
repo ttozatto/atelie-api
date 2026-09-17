@@ -7,6 +7,7 @@ Uso:
     docker compose exec api python -m scripts.seed
 """
 
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -36,7 +37,7 @@ class SeedPhoto:
 
 SEED_PHOTOS: list[SeedPhoto] = [
     SeedPhoto(
-        title="Manha na Serra",
+        title="Manhã na Serra",
         description="Neblina subindo o vale nos primeiros minutos de luz.",
         category="paisagem",
         medium="print",
@@ -58,8 +59,8 @@ SEED_PHOTOS: list[SeedPhoto] = [
         size_px=(1100, 1500),
     ),
     SeedPhoto(
-        title="Viaduto as Seis",
-        description="Rastro dos carros no horario de pico do centro.",
+        title="Viaduto às Seis",
+        description="Rastro dos carros no horário de pico do centro.",
         category="urbano",
         medium="print",
         sizes=["A3", "50x70"],
@@ -69,8 +70,8 @@ SEED_PHOTOS: list[SeedPhoto] = [
         size_px=(1600, 1100),
     ),
     SeedPhoto(
-        title="Estudo de Maos",
-        description="Ensaio autoral sobre gesto e repeticao.",
+        title="Estudo de Mãos",
+        description="Ensaio autoral sobre gesto e repetição.",
         category="autoral",
         medium="print",
         sizes=["A4", "A3"],
@@ -91,8 +92,8 @@ SEED_PHOTOS: list[SeedPhoto] = [
         size_px=(1600, 1000),
     ),
     SeedPhoto(
-        title="Ana, Tres Quartos",
-        description="Retrato de estudio com fundo de papel cinza.",
+        title="Ana, Três Quartos",
+        description="Retrato de estúdio com fundo de papel cinza.",
         category="retrato",
         medium="print",
         sizes=["A4", "30x40"],
@@ -102,8 +103,8 @@ SEED_PHOTOS: list[SeedPhoto] = [
         size_px=(1100, 1500),
     ),
     SeedPhoto(
-        title="Escada de Servico",
-        description="Geometria de concreto encontrada num predio dos anos 60.",
+        title="Escada de Serviço",
+        description="Geometria de concreto encontrada num prédio dos anos 60.",
         category="urbano",
         medium="print",
         sizes=["A3"],
@@ -113,8 +114,8 @@ SEED_PHOTOS: list[SeedPhoto] = [
         size_px=(1200, 1500),
     ),
     SeedPhoto(
-        title="Ensaio sem Titulo",
-        description="Serie autoral ainda em edicao, fora da galeria publica.",
+        title="Ensaio sem Título",
+        description="Série autoral ainda em edição, fora da galeria pública.",
         category="autoral",
         medium="quadro",
         sizes=["30x40"],
@@ -139,13 +140,17 @@ def _draw_image(seed_photo: SeedPhoto, destination: Path) -> None:
         width=4,
     )
 
+    # A fonte embutida do Pillow nao tem glifos acentuados (desenharia um quadrado no
+    # lugar do "a" de "Manha"). So o texto desenhado perde o acento; o titulo gravado
+    # no banco continua acentuado.
+    label = unicodedata.normalize("NFKD", seed_photo.title).encode("ascii", "ignore").decode()
     font = ImageFont.load_default(size=72)
-    text_box = draw.textbbox((0, 0), seed_photo.title, font=font)
+    text_box = draw.textbbox((0, 0), label, font=font)
     position = (
         (seed_photo.size_px[0] - (text_box[2] - text_box[0])) // 2,
         (seed_photo.size_px[1] - (text_box[3] - text_box[1])) // 2,
     )
-    draw.text(position, seed_photo.title, font=font, fill=(250, 249, 247))
+    draw.text(position, label, font=font, fill=(250, 249, 247))
 
     image.save(destination, format="JPEG", quality=88)
 
