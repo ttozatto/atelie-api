@@ -1,102 +1,157 @@
 # atelie-api
 
-API REST do catalogo de fotografias em print e quadro. FastAPI + SQLAlchemy + PostgreSQL.
+API REST do **Ateliê**, catálogo online de fotografias em print e quadro. Guarda as obras
+e os clientes interessados, recebe o upload das imagens e consulta o ViaCEP para
+preencher endereços.
 
-Repositorio da interface: `atelie-web` (clonado ao lado desta pasta; o `docker-compose.yml` fica lá).
+FastAPI, SQLAlchemy 2 e PostgreSQL 16, rodando em Docker.
 
-## Status
+Repositório da interface: `atelie-web` — onde fica o `docker-compose.yml` que sobe o
+sistema inteiro, o diagrama da arquitetura e a documentação do ViaCEP.
 
-Etapa 3 concluida: CRUD de fotos, proxy do ViaCEP e cadastro de clientes.
+## Pré-requisitos
 
-## Rotas
+Docker e Docker Compose v2. Nada de Python no host: todo comando roda em contêiner.
 
-| Metodo | Rota | Observacao |
-| --- | --- | --- |
-| `GET` | `/api/photos` | filtros `q`, `category`, `is_published`; paginacao `limit`/`offset` |
-| `GET` | `/api/photos/{id}` | detalhe da obra |
-| `POST` | `/api/photos` | `multipart/form-data`: imagem + metadados — exige `X-Admin-Token` |
-| `PUT` | `/api/photos/{id}` | metadados; imagem nova e opcional — exige `X-Admin-Token` |
-| `DELETE` | `/api/photos/{id}` | apaga o registro e o arquivo — exige `X-Admin-Token` |
-| `GET` | `/api/customers` | lista paginada |
-| `POST` | `/api/customers` | cadastro; e-mail duplicado responde 409 |
-| `GET` | `/api/cep/{cep}` | proxy tratado do ViaCEP |
-| `GET` | `/health` | checa a conexao com o banco |
+## Instalação e execução
 
-Erros saem no formato `{"detail": "..."}`.
+Este repositório **não sobe sozinho**. O `docker-compose.yml` com banco, API e interface
+fica no repositório `atelie-web`, e os dois precisam estar clonados **lado a lado**:
 
-### Proxy de CEP
+```
+./atelie-web/     # contém o docker-compose.yml
+./atelie-api/     # este repositório
+```
 
-O ViaCEP e consumido **pela API**, nunca pelo navegador: a interface so conhece
-`GET /api/cep/{cep}`. A resposta do servico externo e traduzida para o nosso schema
-(`logradouro`→`street`, `bairro`→`district`, `localidade`→`city`, `uf`→`state`) e as
-falhas viram erros nossos:
+O serviço `api` do compose constrói a imagem com `build.context: ../atelie-api`, por isso
+a pasta vizinha precisa existir com esse nome.
 
-| Situacao | Nossa resposta |
+```bash
+# na mesma pasta, clone os dois repositórios
+git clone <url-do-repositorio>/atelie-web.git
+git clone <url-do-repositorio>/atelie-api.git
+cd atelie-web
+cp .env.example .env
+docker compose up --build
+```
+
+| Endereço | O que é |
 | --- | --- |
-| CEP encontrado | `200` com `{cep, street, district, city, state}` |
-| ViaCEP responde `{"erro": true}` | `404` `CEP nao encontrado` |
-| ViaCEP nao responde a tempo | `504` `Servico de CEP nao respondeu a tempo` |
-| ViaCEP fora do ar ou resposta invalida | `502` `Servico de CEP indisponivel` |
-| CEP fora do formato de 8 digitos | `422` (nem chega a consultar o ViaCEP) |
+| http://localhost:8000/docs | Swagger, com todas as rotas documentadas |
+| http://localhost:8000/health | Health check da API e do banco |
+| http://localhost:8000/media/… | Imagens enviadas |
 
-A implementacao esta em [`app/services/viacep.py`](app/services/viacep.py).
+As tabelas são criadas no startup com `Base.metadata.create_all()` (MVP sem migrações).
 
-### Upload
+### Dados de exemplo
 
-Aceita `jpg`, `jpeg`, `png` e `webp` ate 10 MB (415 para formato nao suportado, 413
-acima do limite). O arquivo vai para o volume montado em `/app/media` e e servido por
-`StaticFiles` em `/media`; o campo `image_path` guarda o caminho publico
-(ex.: `/media/a1b2c3.jpg`). Nao ha geracao de thumbnail — o redimensionamento fica com
-o `next/image` na interface.
-
-O campo `sizes` chega como texto separado por virgula (`A4, A3, 30x40`) e e gravado
-como `text[]`.
-
-## Seed
-
-Gera 8 obras de exemplo com imagens criadas na hora pelo Pillow (retangulo colorido com
-o titulo escrito), para a demonstracao nao depender de foto real:
+Gera 8 obras com imagens criadas na hora pelo Pillow (retângulo colorido com o título
+escrito), para a demonstração não depender de foto real:
 
 ```bash
 docker compose exec api python -m scripts.seed
 ```
 
-O script nao faz nada se o catalogo ja tiver obras.
+O script não faz nada se o catálogo já tiver obras.
 
-## Como executar
+### Dockerfile
 
-Este repositorio nao roda sozinho: o `docker-compose.yml` que sobe banco, API e
-interface fica em `../atelie-web`.
+`python:3.12-slim`, usuário não-root (`atelie`) e uvicorn, em dois estágios:
+
+- **`dev`** — usado pelo compose: inclui ruff e pytest e roda `uvicorn --reload`, com o
+  código vindo do host por bind mount.
+- **`runtime`** — imagem enxuta, só com as dependências de execução.
 
 ```bash
-cd ../atelie-web
-cp .env.example .env
-docker compose up --build
+docker build --target runtime -t atelie-api .
 ```
 
-- API: http://localhost:8000
-- Swagger: http://localhost:8000/docs
-- Health: http://localhost:8000/health
+## Variáveis de ambiente
 
-## Variaveis de ambiente
+Dentro do compose, os valores vêm do `.env` do repositório `atelie-web`. O
+[`.env.example`](.env.example) deste repositório documenta as variáveis que a API lê.
+`DATABASE_URL` e `ADMIN_TOKEN` não têm valor padrão no código: sem elas a API não sobe,
+em vez de subir com uma credencial conhecida.
 
-| Variavel | Descricao | Exemplo |
+| Variável | Descrição | Valor padrão |
 | --- | --- | --- |
-| `DATABASE_URL` | Conexao SQLAlchemy com o PostgreSQL | `postgresql+psycopg://atelie:atelie@db:5432/atelie` |
-| `CORS_ORIGINS` | Origens liberadas no CORS, separadas por virgula | `http://localhost:3000` |
-| `ADMIN_TOKEN` | Token comparado ao header `X-Admin-Token` nas rotas de escrita | `troque-este-token` |
-| `MEDIA_DIR` | Diretorio das imagens enviadas | `/app/media` |
-| `VIACEP_BASE_URL` | Base do servico de CEP | `https://viacep.com.br/ws` |
-| `VIACEP_TIMEOUT_SECONDS` | Tempo limite da consulta ao ViaCEP | `5` |
+| `DATABASE_URL` | Conexão SQLAlchemy com o PostgreSQL | **obrigatória** |
+| `CORS_ORIGINS` | Origens liberadas no CORS, separadas por vírgula | `http://localhost:3000` |
+| `ADMIN_TOKEN` | Token comparado ao header `X-Admin-Token` nas rotas de escrita | **obrigatória** |
+| `MEDIA_DIR` | Diretório onde as imagens são gravadas | `/app/media` |
+| `VIACEP_BASE_URL` | Base do serviço de CEP | `https://viacep.com.br/ws` |
+| `VIACEP_TIMEOUT_SECONDS` | Tempo limite da consulta ao ViaCEP, em segundos | `5` |
 
-Copie `.env.example` para `.env` se quiser rodar a API isolada. O `.env` nao e versionado.
+## Rotas
+
+Prefixo `/api`. Todos os erros saem no formato `{"detail": "..."}`, documentado no
+Swagger como `ErrorResponse`.
+
+| Método | Rota | Observação |
+| --- | --- | --- |
+| `GET` | `/api/photos` | Filtros `q`, `category`, `is_published`; paginação `limit`/`offset` |
+| `GET` | `/api/photos/{id}` | Detalhe da obra; `404` se não existir |
+| `POST` | `/api/photos` | `multipart/form-data`: imagem + metadados. Exige `X-Admin-Token` |
+| `PUT` | `/api/photos/{id}` | Metadados; imagem nova é opcional. Exige `X-Admin-Token` |
+| `DELETE` | `/api/photos/{id}` | Apaga o registro e o arquivo. Exige `X-Admin-Token` |
+| `GET` | `/api/customers` | Lista paginada |
+| `POST` | `/api/customers` | Cadastro; e-mail duplicado responde `409` |
+| `GET` | `/api/cep/{cep}` | Proxy tratado do ViaCEP |
+| `GET` | `/health` | Checa a conexão com o banco; `503` se ele não responder |
+
+### Listagens paginadas
+
+`GET /api/photos` e `GET /api/customers` devolvem um envelope com o total, para a
+paginação poder ser exibida:
+
+```json
+{ "items": [ ... ], "total": 8, "limit": 24, "offset": 0 }
+```
+
+### Upload de imagens
+
+Aceita `jpg`, `jpeg`, `png` e `webp` até 10 MB: `415` para formato não suportado e `413`
+acima do limite. O arquivo vai para o volume Docker montado em `/app/media`, com nome
+aleatório, e é servido por `StaticFiles` em `/media`. O campo `image_path` guarda o
+caminho público (ex.: `/media/a1b2c3.jpg`). Não há geração de thumbnail: o
+redimensionamento fica com o `next/image` na interface.
+
+O campo `sizes` chega como texto separado por vírgula (`A4, A3, 30x40`) e é gravado como
+`text[]`.
+
+### Proxy do ViaCEP
+
+O ViaCEP é consumido **pela API**, nunca pelo navegador: a interface só conhece
+`GET /api/cep/{cep}`. A resposta do serviço externo é convertida para o nosso schema e as
+falhas dele viram erros nossos.
+
+| Campo do ViaCEP | Nosso campo |
+| --- | --- |
+| `logradouro` | `street` |
+| `bairro` | `district` |
+| `localidade` | `city` |
+| `uf` | `state` |
+
+| Situação | Nossa resposta |
+| --- | --- |
+| CEP encontrado | `200` com `{cep, street, district, city, state}` |
+| CEP fora do formato de 8 dígitos | `422`, sem consultar o ViaCEP |
+| ViaCEP responde `{"erro": true}` | `404` — "CEP não encontrado" |
+| ViaCEP não responde dentro do tempo limite | `504` — "Serviço de CEP não respondeu a tempo" |
+| ViaCEP fora do ar ou com resposta inválida | `502` — "Serviço de CEP indisponível" |
+
+Implementação em [`app/services/viacep.py`](app/services/viacep.py). O que é o ViaCEP e
+seus termos de uso estão documentados no README do `atelie-web`.
 
 ## Nota sobre o ADMIN_TOKEN
 
-O painel nao tem autenticacao real. As rotas de escrita de fotos usam uma dependency
-do FastAPI que compara o header `X-Admin-Token` com a variavel `ADMIN_TOKEN`.
-E um **placeholder de MVP academico**, nao um mecanismo de autenticacao: nao ha
-usuarios, sessoes, hash de senha nem expiracao. Nao usar em producao.
+> **Isto é um placeholder de MVP acadêmico, não autenticação.**
+
+As rotas de escrita de fotos (`POST`, `PUT` e `DELETE /api/photos`) usam uma dependency
+do FastAPI ([`app/security.py`](app/security.py)) que compara o header `X-Admin-Token`
+com a variável `ADMIN_TOKEN` e responde `401` se não bater. Não há usuários, sessões,
+senhas nem expiração, e o token é um segredo compartilhado fixo. Não usar em produção:
+num sistema real, trocar por autenticação de verdade.
 
 ## Qualidade
 
@@ -105,6 +160,24 @@ docker compose exec api ruff check .
 docker compose exec api pytest
 ```
 
-Os testes usam um banco proprio (`atelie_test`, criado automaticamente) e um diretorio
-de media temporario, entao nao mexem nos dados de desenvolvimento. Nenhum teste acessa
-a rede.
+Os testes cobrem o essencial: CRUD de fotos (incluindo token e limites de upload),
+e-mail duplicado e o proxy de CEP com o ViaCEP mockado (sucesso, CEP inexistente,
+timeout e falha). Eles usam um banco próprio (`atelie_test`, criado automaticamente) e um
+diretório de media temporário, então não mexem nos dados de desenvolvimento, e **nenhum
+teste acessa a rede**.
+
+## Estrutura
+
+```
+app/
+  main.py         aplicação, CORS, StaticFiles e tags do Swagger
+  config.py       variáveis de ambiente (pydantic-settings)
+  database.py     engine, sessão e Base do SQLAlchemy
+  security.py     placeholder do X-Admin-Token
+  models/         tabelas photos e customers
+  schemas/        contratos Pydantic de entrada e saída
+  routers/        photos, customers, cep e health
+  services/       upload de imagens e consumo do ViaCEP
+scripts/seed.py   obras de exemplo
+tests/            pytest
+```

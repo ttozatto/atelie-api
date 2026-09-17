@@ -10,10 +10,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://atelie:atelie@db:5432/atelie"
-    cors_origins: str = "http://localhost:3000"
+    # Obrigatorias e sem valor padrao: nenhum segredo fica escrito no codigo. Sem elas a
+    # API nao sobe, em vez de subir com uma credencial conhecida.
+    database_url: str
     # Placeholder de MVP academico: nao e autenticacao. Ver README.
-    admin_token: str = "dev-token"
+    admin_token: str
+    cors_origins: str = "http://localhost:3000"
     media_dir: str = "/app/media"
     viacep_base_url: str = "https://viacep.com.br/ws"
     viacep_timeout_seconds: float = 5.0
