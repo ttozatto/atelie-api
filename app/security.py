@@ -16,14 +16,14 @@ from app.config import get_settings
 def require_admin_token(
     x_admin_token: Annotated[
         str | None,
-        Header(description="Token do painel, comparado com a variavel ADMIN_TOKEN"),
+        Header(description="Token do painel, comparado com a variável ADMIN_TOKEN"),
     ] = None,
 ) -> None:
     """Recusa a requisicao se o header X-Admin-Token nao bater com ADMIN_TOKEN."""
     if x_admin_token != get_settings().admin_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token do painel invalido ou ausente",
+            detail="Token do painel inválido ou ausente",
         )
 
 

@@ -10,8 +10,8 @@ from pydantic import BaseModel, Field
 class AddressResponse(BaseModel):
     """Endereco resolvido a partir de um CEP."""
 
-    cep: str = Field(description="CEP consultado, so digitos", examples=["01001000"])
-    street: str = Field(description="Logradouro (logradouro no ViaCEP)", examples=["Praca da Se"])
-    district: str = Field(description="Bairro (bairro no ViaCEP)", examples=["Se"])
-    city: str = Field(description="Cidade (localidade no ViaCEP)", examples=["Sao Paulo"])
+    cep: str = Field(description="CEP consultado, só dígitos", examples=["01001000"])
+    street: str = Field(description="Logradouro (logradouro no ViaCEP)", examples=["Praça da Sé"])
+    district: str = Field(description="Bairro (bairro no ViaCEP)", examples=["Sé"])
+    city: str = Field(description="Cidade (localidade no ViaCEP)", examples=["São Paulo"])
     state: str = Field(description="UF (uf no ViaCEP)", examples=["SP"])

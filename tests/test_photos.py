@@ -57,7 +57,7 @@ def test_create_photo_sem_token_recusa(client, png_bytes):
     )
 
     assert response.status_code == 401
-    assert response.json() == {"detail": "Token do painel invalido ou ausente"}
+    assert response.json() == {"detail": "Token do painel inválido ou ausente"}
 
 
 def test_create_photo_recusa_formato_nao_suportado(client, admin_headers):
@@ -78,7 +78,7 @@ def test_list_photos_aplica_busca_categoria_e_publicacao(client, admin_headers, 
         client,
         admin_headers,
         png_bytes,
-        title="Ensaio sem Titulo",
+        title="Ensaio sem Título",
         category="autoral",
         is_published="false",
     )
@@ -105,7 +105,7 @@ def test_read_photo_inexistente_retorna_404(client):
     response = client.get("/api/photos/999")
 
     assert response.status_code == 404
-    assert response.json() == {"detail": "Obra nao encontrada"}
+    assert response.json() == {"detail": "Obra não encontrada"}
 
 
 def test_update_photo_altera_metadados_e_mantem_imagem(client, admin_headers, png_bytes):
@@ -157,6 +157,6 @@ def test_delete_photo_remove_registro_e_arquivo(client, admin_headers, png_bytes
     response = client.delete(f"/api/photos/{photo['id']}", headers=admin_headers)
 
     assert response.status_code == 200
-    assert response.json() == {"detail": "Obra excluida"}
+    assert response.json() == {"detail": "Obra excluída"}
     assert client.get(f"/api/photos/{photo['id']}").status_code == 404
     assert not stored_file(photo["image_path"]).exists()

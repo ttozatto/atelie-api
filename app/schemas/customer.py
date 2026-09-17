@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-Cep = Annotated[str, Field(pattern=r"^\d{8}$", description="CEP com 8 digitos, sem mascara")]
+Cep = Annotated[str, Field(pattern=r"^\d{8}$", description="CEP com 8 dígitos, sem máscara")]
 State = Annotated[str, Field(pattern=r"^[A-Za-z]{2}$", description="UF com 2 letras")]
 
 
@@ -13,11 +13,11 @@ class CustomerCreate(BaseModel):
     """Dados do cliente interessado, com o endereco inline."""
 
     full_name: Annotated[str, Field(min_length=3, max_length=120, description="Nome completo")]
-    email: Annotated[EmailStr, Field(description="E-mail, unico por cliente")]
+    email: Annotated[EmailStr, Field(description="E-mail, único por cliente")]
     phone: Annotated[str | None, Field(default=None, max_length=20, description="Telefone")]
     cep: Cep
     street: Annotated[str, Field(min_length=1, max_length=200, description="Logradouro")]
-    number: Annotated[str, Field(min_length=1, max_length=20, description="Numero")]
+    number: Annotated[str, Field(min_length=1, max_length=20, description="Número")]
     complement: Annotated[
         str | None, Field(default=None, max_length=100, description="Complemento")
     ]
@@ -41,9 +41,9 @@ class CustomerRead(BaseModel):
     full_name: str = Field(description="Nome completo")
     email: EmailStr = Field(description="E-mail")
     phone: str | None = Field(description="Telefone")
-    cep: str = Field(description="CEP, so digitos")
+    cep: str = Field(description="CEP, só dígitos")
     street: str = Field(description="Logradouro")
-    number: str = Field(description="Numero")
+    number: str = Field(description="Número")
     complement: str | None = Field(description="Complemento")
     district: str | None = Field(description="Bairro")
     city: str = Field(description="Cidade")

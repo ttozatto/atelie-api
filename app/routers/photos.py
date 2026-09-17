@@ -7,14 +7,14 @@ from sqlalchemy import func, or_, select
 
 from app.database import DbSession
 from app.models.photo import Photo
-from app.schemas.common import MessageResponse, Page
+from app.schemas.common import MessageResponse, Page, error_responses
 from app.schemas.photo import PhotoCategory, PhotoMedium, PhotoRead
 from app.security import AdminGuard
 from app.services.media import delete_image, save_image
 
 router = APIRouter(prefix="/api/photos", tags=["photos"])
 
-SIZES_DESCRIPTION = "Formatos separados por virgula, ex.: A4, A3, 30x40"
+SIZES_DESCRIPTION = "Formatos separados por vírgula, ex.: A4, A3, 30x40"
 
 
 def _parse_sizes(raw_sizes: str) -> list[str]:
@@ -26,23 +26,23 @@ def _get_photo_or_404(db: DbSession, photo_id: int) -> Photo:
     """Busca a obra pelo id ou levanta 404."""
     photo = db.get(Photo, photo_id)
     if photo is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Obra nao encontrada")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Obra não encontrada")
     return photo
 
 
 @router.get(
     "",
-    summary="Lista as obras com busca, filtros e paginacao",
+    summary="Lista as obras com busca, filtros e paginação",
     response_model=Page[PhotoRead],
 )
 def list_photos(
     db: DbSession,
-    q: Annotated[str | None, Query(description="Busca no titulo e na descricao")] = None,
+    q: Annotated[str | None, Query(description="Busca no título e na descrição")] = None,
     category: Annotated[PhotoCategory | None, Query(description="Filtra por categoria")] = None,
     is_published: Annotated[
-        bool | None, Query(description="Filtra por publicadas ou nao publicadas")
+        bool | None, Query(description="Filtra por publicadas ou não publicadas")
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=100, description="Tamanho da pagina")] = 24,
+    limit: Annotated[int, Query(ge=1, le=100, description="Tamanho da página")] = 24,
     offset: Annotated[int, Query(ge=0, description="Deslocamento")] = 0,
 ) -> Page[PhotoRead]:
     """Devolve a pagina de obras que atende aos filtros, da mais recente para a mais antiga."""
@@ -76,7 +76,12 @@ def list_photos(
     )
 
 
-@router.get("/{photo_id}", summary="Detalha uma obra", response_model=PhotoRead)
+@router.get(
+    "/{photo_id}",
+    summary="Detalha uma obra",
+    response_model=PhotoRead,
+    responses=error_responses(404),
+)
 def read_photo(db: DbSession, photo_id: int) -> PhotoRead:
     """Devolve uma obra pelo id."""
     return PhotoRead.model_validate(_get_photo_or_404(db, photo_id))
@@ -87,18 +92,19 @@ def read_photo(db: DbSession, photo_id: int) -> PhotoRead:
     summary="Cadastra uma obra com upload da imagem",
     response_model=PhotoRead,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 413, 415),
 )
 async def create_photo(
     db: DbSession,
     _: AdminGuard,
-    image: Annotated[UploadFile, File(description="Imagem jpg, jpeg, png ou webp, ate 10 MB")],
-    title: Annotated[str, Form(min_length=1, description="Titulo da obra")],
+    image: Annotated[UploadFile, File(description="Imagem jpg, jpeg, png ou webp, até 10 MB")],
+    title: Annotated[str, Form(min_length=1, description="Título da obra")],
     medium: Annotated[PhotoMedium, Form(description="Suporte: print ou quadro")],
-    price_cents: Annotated[int, Form(ge=0, description="Preco em centavos")],
+    price_cents: Annotated[int, Form(ge=0, description="Preço em centavos")],
     description: Annotated[str | None, Form(description="Texto livre sobre a obra")] = None,
     category: Annotated[PhotoCategory | None, Form(description="Categoria da obra")] = None,
     sizes: Annotated[str, Form(description=SIZES_DESCRIPTION)] = "",
-    is_published: Annotated[bool, Form(description="Se aparece na galeria publica")] = True,
+    is_published: Annotated[bool, Form(description="Se aparece na galeria pública")] = True,
 ) -> PhotoRead:
     """Grava a imagem no volume de media e cria o registro da obra."""
     image_path = await save_image(image)
@@ -127,20 +133,21 @@ async def create_photo(
     "/{photo_id}",
     summary="Atualiza os metadados de uma obra e, se enviada, a imagem",
     response_model=PhotoRead,
+    responses=error_responses(401, 404, 413, 415),
 )
 async def update_photo(
     db: DbSession,
     _: AdminGuard,
     photo_id: int,
-    title: Annotated[str, Form(min_length=1, description="Titulo da obra")],
+    title: Annotated[str, Form(min_length=1, description="Título da obra")],
     medium: Annotated[PhotoMedium, Form(description="Suporte: print ou quadro")],
-    price_cents: Annotated[int, Form(ge=0, description="Preco em centavos")],
+    price_cents: Annotated[int, Form(ge=0, description="Preço em centavos")],
     description: Annotated[str | None, Form(description="Texto livre sobre a obra")] = None,
     category: Annotated[PhotoCategory | None, Form(description="Categoria da obra")] = None,
     sizes: Annotated[str, Form(description=SIZES_DESCRIPTION)] = "",
-    is_published: Annotated[bool, Form(description="Se aparece na galeria publica")] = True,
+    is_published: Annotated[bool, Form(description="Se aparece na galeria pública")] = True,
     image: Annotated[
-        UploadFile | None, File(description="Imagem nova (opcional); mantem a atual se vazio")
+        UploadFile | None, File(description="Imagem nova (opcional); mantém a atual se vazio")
     ] = None,
 ) -> PhotoRead:
     """Substitui os metadados da obra; troca a imagem e apaga a antiga apenas se vier uma nova."""
@@ -178,6 +185,7 @@ async def update_photo(
     "/{photo_id}",
     summary="Exclui uma obra e o arquivo da imagem",
     response_model=MessageResponse,
+    responses=error_responses(401, 404),
 )
 def delete_photo(db: DbSession, _: AdminGuard, photo_id: int) -> MessageResponse:
     """Apaga o registro e, em seguida, o arquivo da imagem no volume de media."""
@@ -186,4 +194,4 @@ def delete_photo(db: DbSession, _: AdminGuard, photo_id: int) -> MessageResponse
     db.delete(photo)
     db.commit()
     delete_image(image_path)
-    return MessageResponse(detail="Obra excluida")
+    return MessageResponse(detail="Obra excluída")

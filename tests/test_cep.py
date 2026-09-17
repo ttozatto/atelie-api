@@ -8,10 +8,10 @@ import pytest
 
 VIACEP_SUCESSO = {
     "cep": "01001-000",
-    "logradouro": "Praca da Se",
+    "logradouro": "Praça da Sé",
     "complemento": "lado impar",
-    "bairro": "Se",
-    "localidade": "Sao Paulo",
+    "bairro": "Sé",
+    "localidade": "São Paulo",
     "uf": "SP",
     "ibge": "3550308",
 }
@@ -45,9 +45,9 @@ def test_cep_traduz_a_resposta_do_viacep(client, monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "cep": "01001000",
-        "street": "Praca da Se",
-        "district": "Se",
-        "city": "Sao Paulo",
+        "street": "Praça da Sé",
+        "district": "Sé",
+        "city": "São Paulo",
         "state": "SP",
     }
 
@@ -59,7 +59,7 @@ def test_cep_inexistente_vira_404(client, monkeypatch):
     response = client.get("/api/cep/99999999")
 
     assert response.status_code == 404
-    assert response.json() == {"detail": "CEP nao encontrado"}
+    assert response.json() == {"detail": "CEP não encontrado"}
 
 
 def test_timeout_do_viacep_vira_504(client, monkeypatch):
@@ -68,7 +68,7 @@ def test_timeout_do_viacep_vira_504(client, monkeypatch):
     response = client.get("/api/cep/01001000")
 
     assert response.status_code == 504
-    assert response.json() == {"detail": "Servico de CEP nao respondeu a tempo"}
+    assert response.json() == {"detail": "Serviço de CEP não respondeu a tempo"}
 
 
 def test_falha_do_viacep_vira_502(client, monkeypatch):
@@ -77,13 +77,13 @@ def test_falha_do_viacep_vira_502(client, monkeypatch):
     response = client.get("/api/cep/01001000")
 
     assert response.status_code == 502
-    assert response.json() == {"detail": "Servico de CEP indisponivel"}
+    assert response.json() == {"detail": "Serviço de CEP indisponível"}
 
 
 @pytest.mark.parametrize("cep", ["1234567", "123456789", "abcdefgh", "01001-000"])
 def test_cep_malformado_nao_chega_ao_viacep(client, monkeypatch, cep):
     def nao_deve_ser_chamado(*args, **kwargs):
-        raise AssertionError("o ViaCEP nao deveria ser consultado com CEP malformado")
+        raise AssertionError("o ViaCEP não deveria ser consultado com CEP malformado")
 
     monkeypatch.setattr(httpx.AsyncClient, "get", nao_deve_ser_chamado)
 

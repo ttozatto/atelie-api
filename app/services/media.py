@@ -37,7 +37,7 @@ async def save_image(upload: UploadFile) -> str:
     if extension is None:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="Formato nao suportado: envie jpg, jpeg, png ou webp",
+            detail="Formato não suportado: envie jpg, jpeg, png ou webp",
         )
 
     destination = media_dir() / f"{uuid4().hex}{extension}"

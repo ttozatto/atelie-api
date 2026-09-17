@@ -44,18 +44,18 @@ async def fetch_address(cep: str) -> AddressResponse:
     except httpx.TimeoutException as exc:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Servico de CEP nao respondeu a tempo",
+            detail="Serviço de CEP não respondeu a tempo",
         ) from exc
     except httpx.HTTPError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Servico de CEP indisponivel",
+            detail="Serviço de CEP indisponível",
         ) from exc
 
     if response.status_code != httpx.codes.OK:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Servico de CEP indisponivel",
+            detail="Serviço de CEP indisponível",
         )
 
     try:
@@ -63,11 +63,11 @@ async def fetch_address(cep: str) -> AddressResponse:
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Servico de CEP devolveu uma resposta invalida",
+            detail="Serviço de CEP devolveu uma resposta inválida",
         ) from exc
 
     # O ViaCEP sinaliza CEP inexistente com {"erro": true} e status 200.
     if not isinstance(payload, dict) or payload.get("erro"):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CEP nao encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CEP não encontrado")
 
     return _to_address(cep, payload)
