@@ -45,14 +45,22 @@ As tabelas são criadas no startup com `Base.metadata.create_all()` (MVP sem mig
 
 ### Dados de exemplo
 
-Gera 8 obras com imagens criadas na hora pelo Pillow (retângulo colorido com o título
-escrito), para a demonstração não depender de foto real:
+O seed popula o catálogo com **20 obras** (18 publicadas e 2 em rascunho, nas quatro
+categorias) e **5 clientes** com endereços reais, conferidos no ViaCEP:
 
 ```bash
 docker compose exec api python -m scripts.seed
 ```
 
-O script não faz nada se o catálogo já tiver obras.
+As fotos ficam versionadas em [`scripts/seed_images/`](scripts/seed_images): são imagens
+do Unsplash, obtidas via [Lorem Picsum](https://picsum.photos) e usadas sob a
+[Unsplash License](https://unsplash.com/license), que dispensa cadastro e permite uso
+livre. Os autores estão creditados em
+[`scripts/seed_images/CREDITS.md`](scripts/seed_images/CREDITS.md). Como as imagens estão
+no repositório, o seed não depende de rede nem de upload manual; se algum arquivo faltar,
+o script gera um retângulo colorido com Pillow no lugar.
+
+O script é idempotente: não faz nada se já houver obras (ou clientes) cadastrados.
 
 ### Dockerfile
 
