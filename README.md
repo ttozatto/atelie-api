@@ -78,13 +78,15 @@ docker build --target runtime -t atelie-api .
 
 Dentro do compose, os valores vêm do `.env` do repositório `atelie-web`. O
 [`.env.example`](.env.example) deste repositório documenta as variáveis que a API lê.
-`DATABASE_URL` e `ADMIN_TOKEN` não têm valor padrão no código: sem elas a API não sobe,
+`DATABASE_URL`, `ADMIN_PASSWORD` e `ADMIN_TOKEN` não têm valor padrão no código: sem elas a API não sobe,
 em vez de subir com uma credencial conhecida.
 
 | Variável | Descrição | Valor padrão |
 | --- | --- | --- |
 | `DATABASE_URL` | Conexão SQLAlchemy com o PostgreSQL | **obrigatória** |
 | `CORS_ORIGINS` | Origens liberadas no CORS, separadas por vírgula | `http://localhost:3000` |
+| `ADMIN_USERNAME` | Usuário aceito na tela de login do painel | `admin` |
+| `ADMIN_PASSWORD` | Senha aceita na tela de login do painel | **obrigatória** |
 | `ADMIN_TOKEN` | Token comparado ao header `X-Admin-Token` nas rotas de escrita | **obrigatória** |
 | `MEDIA_DIR` | Diretório onde as imagens são gravadas | `/app/media` |
 | `VIACEP_BASE_URL` | Base do serviço de CEP | `https://viacep.com.br/ws` |
@@ -104,6 +106,7 @@ Swagger como `ErrorResponse`.
 | `DELETE` | `/api/photos/{id}` | Apaga o registro e o arquivo. Exige `X-Admin-Token` |
 | `GET` | `/api/customers` | Lista paginada |
 | `POST` | `/api/customers` | Cadastro; e-mail duplicado responde `409` |
+| `POST` | `/api/auth/login` | Login do painel; credenciais inválidas respondem `401` |
 | `GET` | `/api/cep/{cep}` | Proxy tratado do ViaCEP |
 | `GET` | `/health` | Checa a conexão com o banco; `503` se ele não responder |
 
@@ -151,15 +154,25 @@ falhas dele viram erros nossos.
 Implementação em [`app/services/viacep.py`](app/services/viacep.py). O que é o ViaCEP e
 seus termos de uso estão documentados no README do `atelie-web`.
 
-## Nota sobre o ADMIN_TOKEN
+## Login do painel e o ADMIN_TOKEN
 
-> **Isto é um placeholder de MVP acadêmico, não autenticação.**
+> **Isto é um placeholder de MVP acadêmico, não autenticação de verdade.**
 
-As rotas de escrita de fotos (`POST`, `PUT` e `DELETE /api/photos`) usam uma dependency
-do FastAPI ([`app/security.py`](app/security.py)) que compara o header `X-Admin-Token`
-com a variável `ADMIN_TOKEN` e responde `401` se não bater. Não há usuários, sessões,
-senhas nem expiração, e o token é um segredo compartilhado fixo. Não usar em produção:
-num sistema real, trocar por autenticação de verdade.
+São duas peças:
+
+1. **`POST /api/auth/login`** ([`app/routers/auth.py`](app/routers/auth.py)) compara o
+   usuário e a senha informados com `ADMIN_USERNAME` e `ADMIN_PASSWORD` (comparação em
+   tempo constante, com `secrets.compare_digest`) e, se baterem, devolve o `ADMIN_TOKEN`.
+   Credenciais erradas respondem `401`, sem dizer se o errado foi o usuário ou a senha.
+2. **A dependency do `X-Admin-Token`** ([`app/security.py`](app/security.py)) protege as
+   rotas de escrita de fotos (`POST`, `PUT` e `DELETE /api/photos`): o header precisa ser
+   igual a `ADMIN_TOKEN`, ou a resposta é `401`.
+
+As limitações são deliberadas e devem ser ditas em voz alta: existe **um único usuário**,
+vindo de variável de ambiente; a senha fica **em texto puro** no ambiente, sem hash; o
+token é um **segredo compartilhado fixo**, sem assinatura, sem expiração e sem
+possibilidade de revogar. Num sistema real, trocar por usuários persistidos com senha em
+hash e sessão ou token assinado com expiração.
 
 ## Qualidade
 

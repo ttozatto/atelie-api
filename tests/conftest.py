@@ -12,6 +12,8 @@ from io import BytesIO
 # Precisa vir antes de importar a app: as configuracoes sao lidas no import.
 os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="atelie-media-test-")
 os.environ["ADMIN_TOKEN"] = "token-de-teste"
+os.environ["ADMIN_USERNAME"] = "admin-de-teste"
+os.environ["ADMIN_PASSWORD"] = "senha-de-teste"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

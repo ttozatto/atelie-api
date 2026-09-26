@@ -9,12 +9,19 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.database import Base, engine
 from app.models import Customer, Photo  # noqa: F401  (o create_all precisa conhecer as tabelas)
-from app.routers import cep, customers, health, photos
+from app.routers import auth, cep, customers, health, photos
 from app.services.media import MEDIA_URL_PREFIX, media_dir
 
 TAGS_METADATA = [
     {"name": "photos", "description": "Catálogo de obras: consulta pública e escrita pelo painel."},
     {"name": "customers", "description": "Cadastro de clientes interessados."},
+    {
+        "name": "auth",
+        "description": (
+            "Login do painel. Placeholder de MVP acadêmico: usuário único vindo de "
+            "variável de ambiente, sem sessão e sem expiração."
+        ),
+    },
     {
         "name": "cep",
         "description": (
@@ -55,4 +62,5 @@ app.mount(MEDIA_URL_PREFIX, StaticFiles(directory=media_dir()), name="media")
 app.include_router(photos.router)
 app.include_router(customers.router)
 app.include_router(cep.router)
+app.include_router(auth.router)
 app.include_router(health.router)
