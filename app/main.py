@@ -4,13 +4,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import Base, engine
 from app.models import Customer, Photo  # noqa: F401  (o create_all precisa conhecer as tabelas)
-from app.routers import auth, cep, customers, health, photos
-from app.services.media import MEDIA_URL_PREFIX, media_dir
+from app.routers import auth, cep, customers, health, media, photos
+from app.services.media import ensure_bucket
 
 TAGS_METADATA = [
     {"name": "photos", "description": "Catálogo de obras: consulta pública e escrita pelo painel."},
@@ -29,14 +28,19 @@ TAGS_METADATA = [
             "endereço no nosso formato."
         ),
     },
+    {
+        "name": "media",
+        "description": ("Imagens das obras, lidas do armazenamento de objetos compatível com S3."),
+    },
     {"name": "health", "description": "Verificação de saúde da API e do banco."},
 ]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Cria as tabelas no startup (MVP academico, sem Alembic)."""
+    """Cria as tabelas e o bucket de imagens no startup (MVP academico, sem Alembic)."""
     Base.metadata.create_all(bind=engine)
+    ensure_bucket()
     yield
 
 
@@ -56,11 +60,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Imagens enviadas pelo painel, servidas direto do volume de media.
-app.mount(MEDIA_URL_PREFIX, StaticFiles(directory=media_dir()), name="media")
-
 app.include_router(photos.router)
 app.include_router(customers.router)
 app.include_router(cep.router)
 app.include_router(auth.router)
+app.include_router(media.router)
 app.include_router(health.router)

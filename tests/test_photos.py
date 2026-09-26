@@ -1,10 +1,8 @@
 """Testes do CRUD de fotos."""
 
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
-from app.services.media import media_dir
+from app.services.media import image_exists
 
 
 def create_photo(
@@ -34,9 +32,9 @@ def create_photo(
     return response.json()
 
 
-def stored_file(image_path: str) -> Path:
-    """Caminho no disco do arquivo referenciado por um image_path."""
-    return media_dir() / Path(image_path).name
+def stored(image_path: str) -> bool:
+    """Diz se o objeto referenciado por um image_path existe no armazenamento."""
+    return image_exists(image_path)
 
 
 def test_create_photo_grava_registro_e_arquivo(client, admin_headers, png_bytes):
@@ -46,7 +44,7 @@ def test_create_photo_grava_registro_e_arquivo(client, admin_headers, png_bytes)
     assert photo["sizes"] == ["A4", "A3", "30x40"]
     assert photo["price_cents"] == 18000
     assert photo["image_path"].startswith("/media/")
-    assert stored_file(photo["image_path"]).exists()
+    assert stored(photo["image_path"])
 
 
 def test_create_photo_sem_token_recusa(client, png_bytes):
@@ -131,7 +129,7 @@ def test_update_photo_altera_metadados_e_mantem_imagem(client, admin_headers, pn
     assert atualizada["sizes"] == ["40x50"]
     assert atualizada["is_published"] is False
     assert atualizada["image_path"] == photo["image_path"]
-    assert stored_file(photo["image_path"]).exists()
+    assert stored(photo["image_path"])
 
 
 def test_update_photo_troca_imagem_e_apaga_a_antiga(client, admin_headers, png_bytes):
@@ -147,8 +145,8 @@ def test_update_photo_troca_imagem_e_apaga_a_antiga(client, admin_headers, png_b
     assert response.status_code == 200
     nova = response.json()
     assert nova["image_path"] != photo["image_path"]
-    assert stored_file(nova["image_path"]).exists()
-    assert not stored_file(photo["image_path"]).exists()
+    assert stored(nova["image_path"])
+    assert not stored(photo["image_path"])
 
 
 def test_delete_photo_remove_registro_e_arquivo(client, admin_headers, png_bytes):
@@ -159,4 +157,4 @@ def test_delete_photo_remove_registro_e_arquivo(client, admin_headers, png_bytes
     assert response.status_code == 200
     assert response.json() == {"detail": "Obra excluída"}
     assert client.get(f"/api/photos/{photo['id']}").status_code == 404
-    assert not stored_file(photo["image_path"]).exists()
+    assert not stored(photo["image_path"])

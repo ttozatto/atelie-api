@@ -11,10 +11,11 @@ Uso:
     docker compose exec api python -m scripts.seed
 """
 
-import shutil
 import unicodedata
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
+from typing import BinaryIO
 from uuid import uuid4
 
 from PIL import Image, ImageDraw, ImageFont
@@ -23,7 +24,7 @@ from sqlalchemy import func, select
 from app.database import Base, SessionLocal, engine
 from app.models.customer import Customer
 from app.models.photo import Photo
-from app.services.media import MEDIA_URL_PREFIX, media_dir
+from app.services.media import MEDIA_URL_PREFIX, ensure_bucket, put_object
 
 SEED_IMAGES_DIR = Path(__file__).parent / "seed_images"
 
@@ -316,7 +317,7 @@ SEED_CUSTOMERS: list[SeedCustomer] = [
 ]
 
 
-def _draw_placeholder(seed_photo: SeedPhoto, destination: Path) -> None:
+def _draw_placeholder(seed_photo: SeedPhoto, destination: BinaryIO) -> None:
     """Gera um retangulo colorido com o titulo, usado quando falta a imagem de exemplo."""
     width, height = 1400, 1000
     color = FALLBACK_COLORS.get(seed_photo.category, (130, 130, 130))
@@ -336,18 +337,21 @@ def _draw_placeholder(seed_photo: SeedPhoto, destination: Path) -> None:
 
 
 def _put_image_in_media(seed_photo: SeedPhoto) -> str:
-    """Coloca a imagem da obra no volume de media e devolve o image_path publico."""
+    """Sobe a imagem da obra para o armazenamento e devolve o image_path publico."""
     source = SEED_IMAGES_DIR / seed_photo.image_file
-    file_name = f"{uuid4().hex}.jpg"
-    destination = media_dir() / file_name
+    key = f"{uuid4().hex}.jpg"
 
     if source.is_file():
-        shutil.copyfile(source, destination)
+        with source.open("rb") as file:
+            put_object(key, file, "image/jpeg")
     else:
         print(f"  aviso: {seed_photo.image_file} nao encontrado, gerando uma imagem no lugar")
-        _draw_placeholder(seed_photo, destination)
+        buffer = BytesIO()
+        _draw_placeholder(seed_photo, buffer)
+        buffer.seek(0)
+        put_object(key, buffer, "image/jpeg")
 
-    return f"{MEDIA_URL_PREFIX}/{file_name}"
+    return f"{MEDIA_URL_PREFIX}/{key}"
 
 
 def _seed_photos(db) -> None:
@@ -393,8 +397,9 @@ def _seed_customers(db) -> None:
 
 
 def main() -> None:
-    """Cria as tabelas e popula obras e clientes."""
+    """Cria as tabelas e o bucket, e popula obras e clientes."""
     Base.metadata.create_all(bind=engine)
+    ensure_bucket()
     with SessionLocal() as db:
         _seed_photos(db)
         _seed_customers(db)

@@ -1,16 +1,17 @@
 """Fixtures dos testes.
 
-Os testes usam um banco proprio (`<banco>_test`) e um diretorio de media temporario,
-para nunca mexer nos dados de desenvolvimento. Nenhum teste acessa a rede.
+Os testes usam um banco proprio (`<banco>_test`) e um bucket proprio
+(`atelie-media-test`), para nunca mexer nos dados de desenvolvimento. O armazenamento e o
+banco sao os do compose, na rede interna: nenhum teste acessa a internet.
 """
 
 import os
-import tempfile
 from collections.abc import Generator
 from io import BytesIO
 
 # Precisa vir antes de importar a app: as configuracoes sao lidas no import.
-os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="atelie-media-test-")
+# Bucket proprio, para os testes nao mexerem nas imagens de desenvolvimento.
+os.environ["S3_BUCKET"] = "atelie-media-test"
 os.environ["ADMIN_TOKEN"] = "token-de-teste"
 os.environ["ADMIN_USERNAME"] = "admin-de-teste"
 os.environ["ADMIN_PASSWORD"] = "senha-de-teste"
@@ -25,6 +26,7 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services.media import ensure_bucket, get_s3_client  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -48,12 +50,24 @@ def test_engine() -> Generator[Engine, None, None]:
     engine.dispose()
 
 
+@pytest.fixture(scope="session")
+def test_bucket() -> str:
+    """Garante que o bucket de testes existe."""
+    ensure_bucket()
+    return get_settings().s3_bucket
+
+
 @pytest.fixture(autouse=True)
-def clean_database(test_engine: Engine) -> None:
-    """Esvazia as tabelas antes de cada teste."""
+def clean_database(test_engine: Engine, test_bucket: str) -> None:
+    """Esvazia as tabelas e o bucket antes de cada teste."""
     tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
     with test_engine.begin() as connection:
         connection.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
+
+    client = get_s3_client()
+    objetos = client.list_objects_v2(Bucket=test_bucket).get("Contents", [])
+    for objeto in objetos:
+        client.delete_object(Bucket=test_bucket, Key=objeto["Key"])
 
 
 @pytest.fixture

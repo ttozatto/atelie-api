@@ -4,7 +4,8 @@ API REST do **Ateliê**, catálogo online de fotografias em print e quadro. Guar
 e os clientes interessados, recebe o upload das imagens e consulta o ViaCEP para
 preencher endereços.
 
-FastAPI, SQLAlchemy 2 e PostgreSQL 16, rodando em Docker.
+FastAPI, SQLAlchemy 2 e PostgreSQL 16, com as imagens num armazenamento de objetos
+compatível com a API do Amazon S3. Tudo rodando em Docker.
 
 Repositório da interface: `atelie-web` — onde fica o `docker-compose.yml` que sobe o
 sistema inteiro, o diagrama da arquitetura e a documentação do ViaCEP.
@@ -78,7 +79,8 @@ docker build --target runtime -t atelie-api .
 
 Dentro do compose, os valores vêm do `.env` do repositório `atelie-web`. O
 [`.env.example`](.env.example) deste repositório documenta as variáveis que a API lê.
-`DATABASE_URL`, `ADMIN_PASSWORD` e `ADMIN_TOKEN` não têm valor padrão no código: sem elas a API não sobe,
+`DATABASE_URL`, `ADMIN_PASSWORD`, `ADMIN_TOKEN`, `S3_ACCESS_KEY` e `S3_SECRET_KEY` não têm
+valor padrão no código: sem elas a API não sobe,
 em vez de subir com uma credencial conhecida.
 
 | Variável | Descrição | Valor padrão |
@@ -88,7 +90,10 @@ em vez de subir com uma credencial conhecida.
 | `ADMIN_USERNAME` | Usuário aceito na tela de login do painel | `admin` |
 | `ADMIN_PASSWORD` | Senha aceita na tela de login do painel | **obrigatória** |
 | `ADMIN_TOKEN` | Token comparado ao header `X-Admin-Token` nas rotas de escrita | **obrigatória** |
-| `MEDIA_DIR` | Diretório onde as imagens são gravadas | `/app/media` |
+| `S3_ENDPOINT_URL` | Endereço do armazenamento de objetos | `http://storage:9000` |
+| `S3_BUCKET` | Bucket onde as imagens ficam | `atelie-media` |
+| `S3_ACCESS_KEY` | Chave de acesso do armazenamento | **obrigatória** |
+| `S3_SECRET_KEY` | Chave secreta do armazenamento | **obrigatória** |
 | `VIACEP_BASE_URL` | Base do serviço de CEP | `https://viacep.com.br/ws` |
 | `VIACEP_TIMEOUT_SECONDS` | Tempo limite da consulta ao ViaCEP, em segundos | `5` |
 
@@ -108,6 +113,7 @@ Swagger como `ErrorResponse`.
 | `POST` | `/api/customers` | Cadastro; e-mail duplicado responde `409` |
 | `POST` | `/api/auth/login` | Login do painel; credenciais inválidas respondem `401` |
 | `GET` | `/api/cep/{cep}` | Proxy tratado do ViaCEP |
+| `GET` | `/media/{arquivo}` | Serve os bytes de uma imagem, lidos do armazenamento |
 | `GET` | `/health` | Checa a conexão com o banco; `503` se ele não responder |
 
 ### Listagens paginadas
@@ -119,13 +125,25 @@ paginação poder ser exibida:
 { "items": [ ... ], "total": 8, "limit": 24, "offset": 0 }
 ```
 
-### Upload de imagens
+### Upload e armazenamento de imagens
 
 Aceita `jpg`, `jpeg`, `png` e `webp` até 10 MB: `415` para formato não suportado e `413`
-acima do limite. O arquivo vai para o volume Docker montado em `/app/media`, com nome
-aleatório, e é servido por `StaticFiles` em `/media`. O campo `image_path` guarda o
-caminho público (ex.: `/media/a1b2c3.jpg`). Não há geração de thumbnail: o
-redimensionamento fica com o `next/image` na interface.
+acima do limite.
+
+As imagens **não** ficam no sistema de arquivos da API nem no banco: vão para um
+**armazenamento de objetos com API compatível com o Amazon S3**, acessado com o `boto3`
+([`app/services/media.py`](app/services/media.py)). No compose esse serviço é o
+[RustFS](https://rustfs.com) (Apache-2.0), um substituto open source do S3 que sobe num
+contêiner; trocando as variáveis `S3_*`, o mesmo código fala com o S3 da AWS ou com
+qualquer outro serviço compatível.
+
+O objeto recebe um nome aleatório (UUID) e o banco guarda apenas o caminho público em
+`image_path` (ex.: `/media/a1b2c3.jpg`). Quem devolve os bytes é a rota
+`GET /media/{arquivo}` ([`app/routers/media.py`](app/routers/media.py)), que lê o objeto
+e o transmite com `Cache-Control` longo — o navegador nunca fala direto com o
+armazenamento, e a interface continua conhecendo só a nossa API. O bucket é criado no
+startup, se ainda não existir. Não há geração de thumbnail: o redimensionamento fica com
+o `next/image` na interface.
 
 O campo `sizes` chega como texto separado por vírgula (`A4, A3, 30x40`) e é gravado como
 `text[]`.
@@ -181,11 +199,12 @@ docker compose exec api ruff check .
 docker compose exec api pytest
 ```
 
-Os testes cobrem o essencial: CRUD de fotos (incluindo token e limites de upload),
-e-mail duplicado e o proxy de CEP com o ViaCEP mockado (sucesso, CEP inexistente,
-timeout e falha). Eles usam um banco próprio (`atelie_test`, criado automaticamente) e um
-diretório de media temporário, então não mexem nos dados de desenvolvimento, e **nenhum
-teste acessa a rede**.
+Os testes cobrem o essencial: CRUD de fotos (incluindo token e limites de upload), login
+do painel, e-mail duplicado e o proxy de CEP com o ViaCEP mockado (sucesso, CEP
+inexistente, timeout e falha). Eles usam um banco próprio (`atelie_test`) e um bucket
+próprio (`atelie-media-test`), ambos criados automaticamente, então não mexem nos dados
+de desenvolvimento. O banco e o armazenamento são os do compose, na rede interna:
+**nenhum teste acessa a internet**.
 
 ## Estrutura
 
@@ -198,7 +217,7 @@ app/
   models/         tabelas photos e customers
   schemas/        contratos Pydantic de entrada e saída
   routers/        photos, customers, cep e health
-  services/       upload de imagens e consumo do ViaCEP
+  services/       armazenamento S3 das imagens e consumo do ViaCEP
 scripts/seed.py   obras de exemplo
 tests/            pytest
 ```

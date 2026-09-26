@@ -18,8 +18,13 @@ class Settings(BaseSettings):
     admin_password: str
     admin_token: str
     admin_username: str = "admin"
+    # Armazenamento de objetos compativel com S3 (RustFS no compose, S3 na AWS).
+    s3_access_key: str
+    s3_secret_key: str
+    s3_endpoint_url: str = "http://storage:9000"
+    s3_bucket: str = "atelie-media"
+    s3_region: str = "us-east-1"
     cors_origins: str = "http://localhost:3000"
-    media_dir: str = "/app/media"
     viacep_base_url: str = "https://viacep.com.br/ws"
     viacep_timeout_seconds: float = 5.0
 

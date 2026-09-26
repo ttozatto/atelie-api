@@ -17,7 +17,7 @@ FROM base AS dev
 RUN pip install --no-cache-dir -r requirements-dev.txt
 
 COPY . .
-RUN mkdir -p /app/media && chown -R atelie:atelie /app
+RUN chown -R atelie:atelie /app
 
 USER atelie
 EXPOSE 8000
@@ -29,7 +29,7 @@ FROM base AS runtime
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-RUN mkdir -p /app/media && chown -R atelie:atelie /app
+RUN chown -R atelie:atelie /app
 
 USER atelie
 EXPOSE 8000
