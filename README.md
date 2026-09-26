@@ -92,6 +92,7 @@ em vez de subir com uma credencial conhecida.
 | `ADMIN_TOKEN` | Token comparado ao header `X-Admin-Token` nas rotas de escrita | **obrigatória** |
 | `S3_ENDPOINT_URL` | Endereço do armazenamento de objetos | `http://storage:9000` |
 | `S3_BUCKET` | Bucket onde as imagens ficam | `atelie-media` |
+| `S3_REGION` | Região enviada na assinatura das requisições | `us-east-1` |
 | `S3_ACCESS_KEY` | Chave de acesso do armazenamento | **obrigatória** |
 | `S3_SECRET_KEY` | Chave secreta do armazenamento | **obrigatória** |
 | `VIACEP_BASE_URL` | Base do serviço de CEP | `https://viacep.com.br/ws` |
@@ -210,14 +211,16 @@ de desenvolvimento. O banco e o armazenamento são os do compose, na rede intern
 
 ```
 app/
-  main.py         aplicação, CORS, StaticFiles e tags do Swagger
+  main.py         aplicação, CORS, tags do Swagger e criação do bucket
   config.py       variáveis de ambiente (pydantic-settings)
   database.py     engine, sessão e Base do SQLAlchemy
   security.py     placeholder do X-Admin-Token
   models/         tabelas photos e customers
   schemas/        contratos Pydantic de entrada e saída
-  routers/        photos, customers, cep e health
-  services/       armazenamento S3 das imagens e consumo do ViaCEP
-scripts/seed.py   obras de exemplo
+  routers/        photos, customers, auth, cep, media e health
+  services/       media (armazenamento S3) e viacep
+scripts/
+  seed.py         obras e clientes de exemplo
+  seed_images/    fotos de exemplo (Unsplash) + créditos
 tests/            pytest
 ```
