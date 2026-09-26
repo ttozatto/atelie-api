@@ -120,7 +120,8 @@ Swagger como `ErrorResponse`.
 ### Listagens paginadas
 
 `GET /api/photos` e `GET /api/customers` devolvem um envelope com o total, para a
-paginação poder ser exibida:
+paginação poder ser exibida. É o que sustenta a rolagem infinita da galeria, que pede 6
+obras por vez e usa o `total` para saber quando parar:
 
 ```json
 { "items": [ ... ], "total": 8, "limit": 24, "offset": 0 }
